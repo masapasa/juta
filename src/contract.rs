@@ -13,7 +13,6 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, CONFIG};
 const CONTRACT_NAME: &str = "crates.io:juta";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -22,7 +21,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
     let config = Config {
         ghost_token: deps.api.addr_validate(&msg.ghost_token)?,
         ghost_vaults: msg
@@ -31,9 +29,9 @@ pub fn instantiate(
             .map(|v| deps.api.addr_validate(&v))
             .collect::<StdResult<Vec<Addr>>>()?,
         threshold: msg.threshold,
+        count: msg.count,  // Add this line
     };
     CONFIG.save(deps.storage, &config)?;
-
     Ok(Response::default())
 }
 
