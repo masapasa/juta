@@ -8,6 +8,7 @@ pub struct Config {
     pub ghost_token: Addr,
     pub ghost_vaults: Vec<Addr>,
     pub threshold: Uint128,
+    pub count: i32,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::<Config>::new("config");

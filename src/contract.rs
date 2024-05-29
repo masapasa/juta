@@ -8,6 +8,7 @@ use cw20::Cw20ReceiveMsg;
 use kujira::ghost::basic_vault::query::*;
 use kujira::ghost::basic_vault::execute::*;
 use crate::error::ContractError;
+use crate::msg::GetCountResponse;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, CONFIG};
 const CONTRACT_NAME: &str = "crates.io:juta";
@@ -185,8 +186,23 @@ fn execute_withdraw(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    unimplemented!()
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::VaultInfo {  } => {
+            let config = CONFIG.load(deps.storage)?;
+            let vaults = config.ghost_vaults;
+            let mut vault_infos = vec![];
+            for vault in &vaults {
+                let query_msg = kujira::ghost::basic_vault::query::QueryMsg::Status {};
+                let vault_info: StatusResponse = deps.querier.query_wasm_smart(vault, &query_msg)?;
+                vault_infos.push(vault_info);
+            }
+            to_json_binary(&vault_infos)
+        },
+        QueryMsg::GetCount {} => to_json_binary(&GetCountResponse {
+            count: CONFIG.load(deps.storage)?.count,
+        }),
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -194,6 +210,7 @@ mod tests {
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use crate::state::CONFIG;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_json};
 
@@ -209,9 +226,10 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
+        let config = CONFIG.load(deps.storage)?;
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
         let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(17, value.count);
+        assert_eq!(17, config.count);
     }
 
     #[test]
