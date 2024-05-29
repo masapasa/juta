@@ -9,6 +9,7 @@ pub struct InstantiateMsg {
     pub ghost_token: String,
     pub ghost_vaults: Vec<String>,
     pub threshold: Uint128,
+    pub count: i32
 }
 
 #[cw_serde]
@@ -19,6 +20,10 @@ pub enum ExecuteMsg {
     Withdraw {
         amount: Option<Uint128>,
     },
+    Reset {
+        count: i32,
+    },
+    Increment {},
 }
 
 #[cw_serde]
@@ -26,14 +31,15 @@ pub enum ReceiveMsg {
     Deposit {},
 }
 
-#[cw_serde]
 #[derive(QueryResponses)]
+#[cw_serde]
 pub enum QueryMsg {
-#[serde(rename = "vault_info")]
-#[returns (VaultInfoResponse)]
-VaultInfo {},
-    //needs a return type
-
+    #[serde(rename = "vault_info")]
+    #[returns (VaultInfoResponse)]
+    VaultInfo {},
+    #[serde(rename = "get_count")]
+    #[returns (GetCount)]
+    GetCount {},
 }
 
 impl QueryMsg {
@@ -42,6 +48,25 @@ impl QueryMsg {
             deposit_amount: Uint128::zero(),
         }
     }
+
+    pub fn get_count_response(self, count: i32) -> GetCountResponse {
+        GetCountResponse {
+            count,
+        }
+    }
+    pub fn get_count(self) -> GetCount {
+        GetCount { count: 0 }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetCountResponse {
+    pub count: i32,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct GetCount {
+    pub count: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

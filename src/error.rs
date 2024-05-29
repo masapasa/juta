@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{DivideByZeroError, StdError};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -9,7 +9,8 @@ pub enum ContractError {
     Unauthorized {},
 
     #[error("Divide by zero")]
-    DivideByZeroError {},
+    DivideByZeroError(#[from] DivideByZeroError),
+
 
     #[error("No claims that can be released currently")]
     NothingToClaim {},

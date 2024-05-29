@@ -41,6 +41,7 @@ mod tests {
             ghost_token: "token".to_string(),
             ghost_vaults: vec![],
             threshold: Uint128::zero(),
+            count: todo!(),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(

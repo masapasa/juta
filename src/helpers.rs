@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cosmwasm_std::{
-    to_json_binary, Addr, CosmosMsg, DivideByZeroError, StdResult, WasmMsg
+    to_json_binary, Addr, CosmosMsg, StdResult, WasmMsg
 };
 use crate::msg::ExecuteMsg;
 
@@ -23,8 +23,3 @@ impl CwTemplateContract {
         .into())
     }
 }
-impl From<DivideByZeroError> for ContractError {
-    fn from(_: DivideByZeroError) -> Self {
-        ContractError::DivideByZeroError {}
-    }
-};

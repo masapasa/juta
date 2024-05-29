@@ -1,16 +1,16 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_json, to_json_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, DivideByZeroError, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg, from_json
 };
 use cw2::set_contract_version;
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-
+use cw20::Cw20ReceiveMsg;
+use kujira::ghost::basic_vault::query::*;
+use kujira::ghost::basic_vault::execute::*;
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg, VaultInfo};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, CONFIG};
-
-const CONTRACT_NAME: &str = "crates.io:auto-balancer";
+const CONTRACT_NAME: &str = "crates.io:juta";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -43,9 +43,13 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    match msg {ExecuteMsg::Receive(msg)=>receive_cw20(deps,info,msg),ExecuteMsg::AutoBalance{}=>auto_balance(deps),
-    ExecuteMsg::Deposit {  } => todo!(),
-    ExecuteMsg::Withdraw { amount } => todo!(), }
+    match msg {ExecuteMsg::Receive(msg)=>receive_cw20(deps,info,msg),ExecuteMsg::AutoBalance{}=>auto_balance(deps),ExecuteMsg::Deposit{}=>execute_deposit(deps,info),
+    ExecuteMsg::Withdraw { amount } => {
+        let amount = amount.expect("Expected Uint128, found None");
+        execute_withdraw(deps, info, amount)
+    },
+    ExecuteMsg::Reset { count: _ } => todo!(),
+    ExecuteMsg::Increment {  } => todo!(), }
 }
 
 pub fn receive_cw20(
@@ -65,8 +69,6 @@ pub fn receive_cw20(
     }
 }
 
-
-
 fn auto_deposit(deps: DepsMut, amount: Uint128) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let vaults = config.ghost_vaults;
@@ -75,16 +77,12 @@ fn auto_deposit(deps: DepsMut, amount: Uint128) -> Result<Response, ContractErro
 
     let mut messages = vec![];
     for vault in &vaults {
-        let msg = Cw20ExecuteMsg::Send {
-            contract: vault.to_string(),
-            amount: deposit_amount,
-            msg: to_json_binary(&ExecuteMsg::Deposit {})?,
-        };
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.ghost_token.to_string(),
+        let msg = DepositMsg { callback: None };
+        messages.push(WasmMsg::Execute {
+            contract_addr: vault.to_string(),
             msg: to_json_binary(&msg)?,
             funds: vec![],
-        }));
+        });
     }
 
     Ok(Response::new()
@@ -100,40 +98,36 @@ fn auto_balance(deps: DepsMut) -> Result<Response, ContractError> {
     let mut total_deposits = Uint128::zero();
     let mut balances = vec![];
     for vault in &vaults {
-        let query_msg = QueryMsg::VaultInfo {};
-        let vault_info: VaultInfo = deps.querier.query_wasm_smart(vault, &query_msg)?;
-        let balance = vault_info.deposit_amount;
+        let query_msg = QueryMsg::VaultInfo {  };
+        let vault_info: StatusResponse = deps.querier.query_wasm_smart(vault, &query_msg)?;
+        let balance = vault_info.deposited;
         balances.push(balance);
         total_deposits += balance;
     }
 
-    let target_balance = total_deposits.checked_div(Uint128::from(vaults.len() as u128))?
-    
+    let target_balance = total_deposits.checked_div(Uint128::from(vaults.len() as u128))?;
     let mut messages = vec![];
 
     for (i, balance) in balances.iter().enumerate() {
         if balance > &(target_balance + config.threshold) {
             let withdraw_amount = *balance - target_balance;
-            let msg = ExecuteMsg::Withdraw {
-                amount: Some(withdraw_amount),
+            let msg = WithdrawMsg {
+                amount: withdraw_amount,
+                callback: None,
             };
-            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            messages.push(WasmMsg::Execute {
                 contract_addr: vaults[i].to_string(),
                 msg: to_json_binary(&msg)?,
                 funds: vec![],
-            }));
+            });
         } else if balance < &(target_balance - config.threshold) {
             let deposit_amount = target_balance - *balance;
-            let msg = Cw20ExecuteMsg::Send {
-                contract: vaults[i].to_string(),
-                amount: deposit_amount,
-                msg: to_json_binary(&ExecuteMsg::Deposit {})?,
-            };
-            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.ghost_token.to_string(),
+            let msg = DepositMsg { callback: None };
+            messages.push(WasmMsg::Execute {
+                contract_addr: vaults[i].to_string(),
                 msg: to_json_binary(&msg)?,
                 funds: vec![],
-            }));
+            });
         }
     }
 
@@ -142,13 +136,64 @@ fn auto_balance(deps: DepsMut) -> Result<Response, ContractError> {
         .add_attribute("action", "auto_balance"))
 }
 
+fn execute_deposit(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let vaults = config.ghost_vaults;
+
+    let mut messages = vec![];
+    for vault in &vaults {
+        let msg = DepositMsg { callback: None };
+        messages.push(WasmMsg::Execute {
+            contract_addr: vault.to_string(),
+            msg: to_json_binary(&msg)?,
+            funds: info.funds.clone(),
+        });
+    }
+
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("action", "deposit"))
+}
+
+fn execute_withdraw(
+    deps: DepsMut,
+    info: MessageInfo,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let vaults = config.ghost_vaults;
+    let vault_count = vaults.len() as u128;
+    let withdraw_amount = amount.checked_div(Uint128::from(vault_count))?;
+
+    let mut messages = vec![];
+    for vault in &vaults {
+        let msg = WithdrawMsg {
+            amount: withdraw_amount,
+            callback: None,
+        };
+        messages.push(WasmMsg::Execute {
+            contract_addr: vault.to_string(),
+            msg: to_json_binary(&msg)?,
+            funds: vec![],
+        });
+    }
+
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("action", "withdraw")
+        .add_attribute("amount", amount))
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
     unimplemented!()
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::msg::GetCountResponse;
+    use crate::contract::{execute, instantiate, query};
+    use crate::error::ContractError;
+    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_json};
 
@@ -173,7 +218,7 @@ mod tests {
     fn increment() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg { count: 17, ghost_token: todo!(), ghost_vaults: todo!(), threshold: todo!() };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -192,7 +237,7 @@ mod tests {
     fn reset() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg { count: 17, ghost_token: todo!(), ghost_vaults: todo!(), threshold: todo!() };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
