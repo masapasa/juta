@@ -1,0 +1,30 @@
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use cosmwasm_std::{
+    to_json_binary, Addr, CosmosMsg, DivideByZeroError, StdResult, WasmMsg
+};
+use crate::msg::ExecuteMsg;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct CwTemplateContract(pub Addr);
+
+impl CwTemplateContract {
+    pub fn addr(&self) -> Addr {
+        self.0.clone()
+    }
+
+    pub fn call<T: Into<ExecuteMsg>>(&self, msg: T) -> StdResult<CosmosMsg> {
+        let msg = to_json_binary(&msg.into())?;
+        Ok(WasmMsg::Execute {
+            contract_addr: self.addr().into(),
+            msg,
+            funds: vec![],
+        }
+        .into())
+    }
+}
+impl From<DivideByZeroError> for ContractError {
+    fn from(_: DivideByZeroError) -> Self {
+        ContractError::DivideByZeroError {}
+    }
+};
