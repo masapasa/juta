@@ -10,6 +10,33 @@
 **3. Decentralized Finance (DeFi) Integration:**
    - Easily integrable into broader DeFi solutions on the Kujira and broader Cosmos ecosystem, contributing functionalities like automated rebalancing and multi-vault management to other financial protocols or products.
 
+### Installation
+```sh
+# this will produce a wasm build in ./target/wasm32-unknown-unknown/release/YOUR_NAME_HERE.wasm
+cargo wasm
+
+# this runs unit tests with helpful backtraces
+RUST_BACKTRACE=1 cargo unit-test
+
+# auto-generate json schema
+cargo schema
+
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/optimizer-arm64:0.15.0
+
+pond init
+
+pond start
+
+pond deploy artifacts/juta.wasm --label juta --admin kujira1cyyzpxplxdzkeea7kwsydadg87357qnaww84dg --from kujira1cyyzpxplxdzkeea7kwsydadg87357qnaww84dg
+
+pond tx wasm instantiate 11 '{"ghost_token": "kujira1cyyzpxplxdzkeea7kwsydadg87357qnaww84dg", "ghost_vaults": ["kujira18s5lynnmx37hq4wlrw9gdn68sg2uxp5r39mjh5", "kujira1qwexv7c6sm95lwhzn9027vyu2ccneaqa5xl0d9"], "threshold": "1", "count":1}' --label test --admin kujira14hcxlnwlqtq75ttaxf674vk6mafspg8xhmzm0f --from kujira14hcxlnwlqtq75ttaxf674vk6mafspg8xhmzm0f
+
+pond q tx CEB117A1CDB08CE6BD117525A601227FE4C6E6055430F917FEF3B4E3AA87BD68
+```
+
 # CosmWasm Starter Pack
 
 This is a template to build smart contracts in Rust to run inside a
