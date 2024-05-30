@@ -29,7 +29,7 @@ pub fn instantiate(
             .map(|v| deps.api.addr_validate(&v))
             .collect::<StdResult<Vec<Addr>>>()?,
         threshold: msg.threshold,
-        count: msg.count,  // Add this line
+        count: msg.count,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -47,10 +47,20 @@ pub fn execute(
         let amount = amount.expect("Expected Uint128, found None");
         execute_withdraw(deps, info, amount)
     },
-    ExecuteMsg::Reset { count: _ } => todo!(),
-    ExecuteMsg::Increment {  } => todo!(), }
+    ExecuteMsg::Reset { count } => {
+        let mut config: Config = CONFIG.load(deps.storage)?;
+        config.count = count;
+        CONFIG.save(deps.storage, &config)?;
+        Ok(Response::new())
+    },
+    ExecuteMsg::Increment {  } => {
+        let mut config: Config = CONFIG.load(deps.storage)?;
+        config.count += 1;
+        CONFIG.save(deps.storage, &config)?;
+        Ok(Response::new())
+    },
 }
-
+}
 pub fn receive_cw20(
     deps: DepsMut,
     info: MessageInfo,
