@@ -1,1 +1,1 @@
-3b151a48df1a4e5c014edcb564f538f4080d5561d155f51099a9de670a1ed16c  juta-aarch64.wasm
+ff8da5bfc7c3f57e5698e4aadbb51789d3e601b6f8133f2ae604c38ecee487fd  juta-aarch64.wasm

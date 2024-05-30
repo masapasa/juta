@@ -8,11 +8,12 @@ use cw20::Cw20ReceiveMsg;
 use kujira::ghost::basic_vault::query::*;
 use kujira::ghost::basic_vault::execute::*;
 use crate::error::ContractError;
-use crate::msg::GetCountResponse;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, CONFIG};
+
 const CONTRACT_NAME: &str = "crates.io:juta";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -42,25 +43,29 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    match msg {ExecuteMsg::Receive(msg)=>receive_cw20(deps,info,msg),ExecuteMsg::AutoBalance{}=>auto_balance(deps),ExecuteMsg::Deposit{}=>execute_deposit(deps,info),
-    ExecuteMsg::Withdraw { amount } => {
-        let amount = amount.expect("Expected Uint128, found None");
-        execute_withdraw(deps, info, amount)
-    },
-    ExecuteMsg::Reset { count } => {
-        let mut config: Config = CONFIG.load(deps.storage)?;
-        config.count = count;
-        CONFIG.save(deps.storage, &config)?;
-        Ok(Response::new())
-    },
-    ExecuteMsg::Increment {  } => {
-        let mut config: Config = CONFIG.load(deps.storage)?;
-        config.count += 1;
-        CONFIG.save(deps.storage, &config)?;
-        Ok(Response::new())
-    },
+    match msg {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
+        ExecuteMsg::AutoBalance {} => auto_balance(deps),
+        ExecuteMsg::Deposit {} => execute_deposit(deps, info),
+        ExecuteMsg::Withdraw { amount } => {
+            let amount = amount.expect("Expected Uint128, found None");
+            execute_withdraw(deps, info, amount)
+        },
+        ExecuteMsg::Reset { count } => {
+            let mut config: Config = CONFIG.load(deps.storage)?;
+            config.count = count;
+            CONFIG.save(deps.storage, &config)?;
+            Ok(Response::new())
+        },
+        ExecuteMsg::Increment {} => {
+            let mut config: Config = CONFIG.load(deps.storage)?;
+            config.count += 1;
+            CONFIG.save(deps.storage, &config)?;
+            Ok(Response::new())
+        },
+    }
 }
-}
+
 pub fn receive_cw20(
     deps: DepsMut,
     info: MessageInfo,
@@ -83,7 +88,6 @@ fn auto_deposit(deps: DepsMut, amount: Uint128) -> Result<Response, ContractErro
     let vaults = config.ghost_vaults;
     let vault_count = vaults.len() as u128;
     let deposit_amount = amount.checked_div(Uint128::from(vault_count))?;
-
     let mut messages = vec![];
     for vault in &vaults {
         let msg = DepositMsg { callback: None };
@@ -93,7 +97,6 @@ fn auto_deposit(deps: DepsMut, amount: Uint128) -> Result<Response, ContractErro
             funds: vec![],
         });
     }
-
     Ok(Response::new()
         .add_messages(messages)
         .add_attribute("action", "auto_deposit")
@@ -103,20 +106,17 @@ fn auto_deposit(deps: DepsMut, amount: Uint128) -> Result<Response, ContractErro
 fn auto_balance(deps: DepsMut) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let vaults = config.ghost_vaults;
-
     let mut total_deposits = Uint128::zero();
     let mut balances = vec![];
     for vault in &vaults {
-        let query_msg = QueryMsg::VaultInfo {  };
+        let query_msg = QueryMsg::VaultInfo {};
         let vault_info: StatusResponse = deps.querier.query_wasm_smart(vault, &query_msg)?;
         let balance = vault_info.deposited;
         balances.push(balance);
         total_deposits += balance;
     }
-
     let target_balance = total_deposits.checked_div(Uint128::from(vaults.len() as u128))?;
     let mut messages = vec![];
-
     for (i, balance) in balances.iter().enumerate() {
         if balance > &(target_balance + config.threshold) {
             let withdraw_amount = *balance - target_balance;
@@ -139,7 +139,6 @@ fn auto_balance(deps: DepsMut) -> Result<Response, ContractError> {
             });
         }
     }
-
     Ok(Response::new()
         .add_messages(messages)
         .add_attribute("action", "auto_balance"))
@@ -148,7 +147,6 @@ fn auto_balance(deps: DepsMut) -> Result<Response, ContractError> {
 fn execute_deposit(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let vaults = config.ghost_vaults;
-
     let mut messages = vec![];
     for vault in &vaults {
         let msg = DepositMsg { callback: None };
@@ -158,7 +156,6 @@ fn execute_deposit(deps: DepsMut, info: MessageInfo) -> Result<Response, Contrac
             funds: info.funds.clone(),
         });
     }
-
     Ok(Response::new()
         .add_messages(messages)
         .add_attribute("action", "deposit"))
@@ -173,7 +170,6 @@ fn execute_withdraw(
     let vaults = config.ghost_vaults;
     let vault_count = vaults.len() as u128;
     let withdraw_amount = amount.checked_div(Uint128::from(vault_count))?;
-
     let mut messages = vec![];
     for vault in &vaults {
         let msg = WithdrawMsg {
@@ -186,7 +182,6 @@ fn execute_withdraw(
             funds: vec![],
         });
     }
-
     Ok(Response::new()
         .add_messages(messages)
         .add_attribute("action", "withdraw")
@@ -196,7 +191,7 @@ fn execute_withdraw(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::VaultInfo {  } => {
+        QueryMsg::VaultInfo {} => {
             let config = CONFIG.load(deps.storage)?;
             let vaults = config.ghost_vaults;
             let mut vault_infos = vec![];
@@ -207,83 +202,83 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
             to_json_binary(&vault_infos)
         },
-        QueryMsg::GetCount {} => to_json_binary(&GetCountResponse {
-            count: CONFIG.load(deps.storage)?.count,
-        }),
+        QueryMsg::GetCount {} => {
+            let config = CONFIG.load(deps.storage)?;
+            to_json_binary(&config.count)
+        },
     }
 }
+
 #[cfg(test)]
 mod tests {
-    use crate::msg::GetCountResponse;
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use crate::state::CONFIG;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coins, from_json};
+    use cosmwasm_std::{coins, from_json, Uint128};
 
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg { count: 17, ghost_token: todo!(), ghost_vaults: todo!(), threshold: todo!() };
+        let msg = InstantiateMsg {
+            ghost_token: "token".to_string(),
+            ghost_vaults: vec![],
+            threshold: Uint128::zero(),
+            count: 17,
+        };
         let info = mock_info("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let config = CONFIG.load(deps.storage)?;
+        let config = CONFIG.load(&deps.storage).unwrap();
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
+        let value: i32 = from_json(&res).unwrap();
         assert_eq!(17, config.count);
+        assert_eq!(17, value);
     }
 
     #[test]
     fn increment() {
         let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg { count: 17, ghost_token: todo!(), ghost_vaults: todo!(), threshold: todo!() };
+        let msg = InstantiateMsg {
+            ghost_token: "token".to_string(),
+            ghost_vaults: vec![],
+            threshold: Uint128::zero(),
+            count: 17,
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // beneficiary can release it
         let info = mock_info("anyone", &coins(2, "token"));
         let msg = ExecuteMsg::Increment {};
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // should increase counter by 1
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(18, value.count);
+        let value: i32 = from_json(&res).unwrap();
+        assert_eq!(18, value);
     }
 
     #[test]
     fn reset() {
         let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg { count: 17, ghost_token: todo!(), ghost_vaults: todo!(), threshold: todo!() };
+        let msg = InstantiateMsg {
+            ghost_token: "token".to_string(),
+            ghost_vaults: vec![],
+            threshold: Uint128::zero(),
+            count: 17,
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // beneficiary can release it
         let unauth_info = mock_info("anyone", &coins(2, "token"));
         let msg = ExecuteMsg::Reset { count: 5 };
         let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
         match res {
-            Err(ContractError::Unauthorized {}) => {}
+            Err(ContractError::Unauthorized {}) => {},
             _ => panic!("Must return unauthorized error"),
         }
-
-        // only the original creator can reset the counter
         let auth_info = mock_info("creator", &coins(2, "token"));
         let msg = ExecuteMsg::Reset { count: 5 };
         let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
-
-        // should now be 5
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(5, value.count);
+        let value: i32 = from_json(&res).unwrap();
+        assert_eq!(5, value);
     }
 }
