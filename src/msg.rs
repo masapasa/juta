@@ -11,16 +11,16 @@ pub struct InstantiateMsg {
     pub threshold: Uint128,
     pub count: u64,
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ExecuteMsg {
     Receive(Cw20ReceiveMsg),
     AutoBalance {},
     Deposit {},
-    Withdraw {amount: Option<Uint128>,
+    Withdraw {
+        amount: Option<Uint128>,
     },
     Reset {
-        count: i32,
+        count: u64,
     },
     Increment {},
 }
@@ -34,11 +34,4 @@ pub enum ReceiveMsg {
 pub enum QueryMsg {
     VaultInfo {},
     GetCount {},
-}
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct State {
-    pub ghost_token: Addr,
-    pub ghost_vaults: Vec<Addr>,
-    pub threshold: Uint128,
-    pub count: u64,
 }

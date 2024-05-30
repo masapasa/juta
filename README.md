@@ -1,3 +1,15 @@
+### Juta
+**Juta provides robust solution for managing financial operations on blockchain. By leveraging the inherent features of Rust and the CosmWasm platform, we offer an efficient, secure, and scalable framework suitable for a wide variety of decentralized applications in finance, especially in automated management tasks which require interaction among multiple decentralized entities or contracts. The three most important features are:**
+
+**1. Automated Portfolio Management:**
+   - Manage assets across different vaults without manual intervention, rebalancing to adhered set thresholds.
+
+**2. Simplified Stake Management:**
+   - Users stake CW20 tokens into the contract which then automates the distribution amongst different vaults, streamlining the staking process and potentially optimizing returns.
+
+**3. Decentralized Finance (DeFi) Integration:**
+   - Easily integrable into broader DeFi solutions on the Kujira and broader Cosmos ecosystem, contributing functionalities like automated rebalancing and multi-vault management to other financial protocols or products.
+
 # CosmWasm Starter Pack
 
 This is a template to build smart contracts in Rust to run inside a

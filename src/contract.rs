@@ -189,7 +189,7 @@ fn execute_withdraw(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::VaultInfo {} => {
             let config = CONFIG.load(deps.storage)?;
@@ -232,7 +232,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
         let config = CONFIG.load(&deps.storage).unwrap();
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: i32 = from_json(&res).unwrap();
+        let value: u64 = from_json(&res).unwrap();
         assert_eq!(17, config.count);
         assert_eq!(17, value);
     }
@@ -252,7 +252,7 @@ mod tests {
         let msg = ExecuteMsg::Increment {};
         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: i32 = from_json(&res).unwrap();
+        let value: u64 = from_json(&res).unwrap();
         assert_eq!(18, value);
     }
 
@@ -278,7 +278,7 @@ mod tests {
         let msg = ExecuteMsg::Reset { count: 5 };
         let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: i32 = from_json(&res).unwrap();
+        let value: u64 = from_json(&res).unwrap();
         assert_eq!(5, value);
     }
 }
